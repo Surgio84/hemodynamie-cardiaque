@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hémodynamie cardiaque visuelle</title>
+<style>
+:root{
+  --bg:#f4f7fb;--panel:#fff;--text:#152231;--muted:#667085;--line:#d8e0e9;
+  --navy:#173b63;--blue:#3e79b6;--cyan:#45a5b4;--red:#c35761;--green:#2a8b62;
+  --orange:#c67a2e;--purple:#8d67b8;--soft:#f8fafc;
+  --right:#d8dde3;--right-stroke:#69737f;--left:#f5dce4;--left-stroke:#b9788e;
+  --state-normal:#2f8f5b;--state-low:#3478b8;--state-high:#c84545;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{background:linear-gradient(135deg,#173b63,#245a8e);color:#fff;padding:22px 18px}
+header .wrap,main{max-width:1420px;margin:auto}
+h1{margin:0 0 5px;font-size:clamp(1.4rem,3vw,2.25rem)}
+header p{margin:0;color:#e7f0f9;max-width:900px}
+main{padding:16px}
+.toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+@media(max-width:680px){.toolbar{grid-template-columns:1fr}}
+label{font-weight:800;font-size:.9rem;display:block;margin-bottom:6px}
+select{width:100%;font-size:1rem;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--text)}
+button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:11px 13px;font-weight:800;cursor:pointer}
+button.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(340px,.5fr);gap:14px}
+@media(max-width:980px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.panel h2,.panel h3{margin-top:0}
+.statusline{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:8px}
+.badge{font-size:.78rem;font-weight:900;border-radius:999px;padding:5px 9px;background:#eef4fa;color:#2b5d88}
+.summary{color:var(--muted);font-size:.93rem}
+.diagram{position:relative;border:1px solid var(--line);border-radius:14px;background:linear-gradient(#fbfdff,#f7fafc);overflow:hidden}
+svg{display:block;width:100%;height:auto}
+.chamber{stroke:#5f6974;stroke-width:3;transition:.45s ease}
+.heart-annotation{font-weight:900}
+.flow{fill:none;stroke-linecap:round;stroke-width:12;opacity:.82;transition:.45s ease}
+.flow.low{stroke-width:6;opacity:.38}.flow.high{stroke-width:16;opacity:1}
+.pulse-dot{r:9;opacity:.9}
+.pressure-card{transition:.35s ease}
+.p-normal,.p-high,.p-low{stroke-width:2}
+.right-card{fill:#f4f5f6;stroke:#8b949e}
+.left-card{fill:#fff3f7;stroke:#ca9aad}
+.state-dot{stroke:#fff;stroke-width:2}
+.state-normal{fill:var(--state-normal)}
+.state-low{fill:var(--state-low)}
+.state-high{fill:var(--state-high)}
+.pressure-label{font-size:15px;font-weight:850;fill:#344054;text-anchor:middle}
+.pressure-value{font-size:22px;font-weight:900;fill:#111827;text-anchor:middle}
+.pressure-ref{font-size:12px;fill:#667085;text-anchor:middle}
+.arrow-up{fill:#a43d43}.arrow-down{fill:#2f67a5}.arrow-same{fill:#418060}
+.pericardium{fill:none;stroke:var(--purple);stroke-width:0;opacity:0;transition:.45s ease}
+.pericardium.on{stroke-width:22;opacity:.28}
+.compress{transform-origin:center;transition:.45s ease}
+.compress.on{transform:scale(.92)}
+.callout{display:none}
+.callout.on{display:block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;color:var(--muted);font-size:.9rem}
+.legend span::before{content:"";display:inline-block;width:13px;height:13px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.legend .n::before{background:var(--state-normal)}.legend .h::before{background:var(--state-high)}.legend .l::before{background:var(--state-low)}.legend .p::before{background:var(--purple)}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}
+.kpi{border:1px solid var(--line);border-radius:11px;padding:10px;background:#fff}
+.kpi .lab{font-size:.72rem;text-transform:uppercase;color:var(--muted);font-weight:850}
+.kpi .val{font-size:1.25rem;font-weight:900;margin-top:2px}
+.kpi .trend{font-size:.8rem;font-weight:850;margin-top:2px}
+.high{color:#a43d43}.low{color:#2f67a5}.same{color:#418060}
+.chain{display:grid;gap:8px;margin-top:10px}
+.chain-step{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:#fafcfe;font-size:.9rem}
+.chain-step b{color:var(--navy)}
+.compare{margin-top:12px;border-top:1px solid var(--line);padding-top:11px}
+.compare table{width:100%;border-collapse:collapse;font-size:.86rem}
+.compare th,.compare td{padding:7px 6px;border-bottom:1px solid #e8edf2;text-align:left}
+.compare th{color:var(--muted);font-size:.72rem;text-transform:uppercase}
+.note{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:.83rem;color:#475467;margin-top:12px}
+.source{font-size:.78rem;color:var(--muted);margin-top:10px}
+.source a{color:#1f65a2}
+.help{background:#edf5ff;border:1px solid #c8dcee;border-radius:10px;padding:10px;margin-top:10px;font-size:.86rem}
+.scenario-card{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:11px;background:#fff}
+.scenario-card h4{margin:0 0 8px;font-size:.95rem}
+.scenario-card p{margin:0 0 8px;font-size:.9rem;color:#344054}
+.scenario-card ul{margin:0;padding-left:18px}
+.scenario-card li{margin:4px 0;color:#344054;font-size:.9rem}
+.scenario-tag{display:inline-block;font-size:.72rem;font-weight:900;text-transform:uppercase;letter-spacing:.03em;color:#475467;background:#f3f6f9;border-radius:999px;padding:4px 8px;margin-bottom:8px}
+.teacher-note{background:#f8fafc}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1>Hémodynamie cardiaque — laboratoire visuel interactif</h1>
+<p>Choisissez une pathologie et observez les changements de pressions, de remplissage, de débit et de résistances. Les scénarios et explications sont une création pédagogique originale; les plages de pression normales servent de références cliniques.</p>
+</div></header>
+
+<main>
+<div class="toolbar">
+  <div>
+    <label for="pathology">Pathologie / situation hémodynamique</label>
+    <select id="pathology">
+      <optgroup label="Référence">
+        <option value="normal">Circulation normale</option>
+      </optgroup>
+      <optgroup label="Profils hémodynamiques majeurs">
+        <option value="tamponade">Tamponnade cardiaque</option>
+        <option value="lvhf">Insuffisance cardiaque gauche</option>
+        <option value="rvhf">Insuffisance cardiaque droite / cœur pulmonaire</option>
+        <option value="phtn">Hypertension pulmonaire précapillaire</option>
+        <option value="pe">Embolie pulmonaire massive</option>
+      </optgroup>
+      <optgroup label="Cardiomyopathies">
+        <option value="dcm">Cardiomyopathie dilatée</option>
+        <option value="hcm">Cardiomyopathie hypertrophique obstructive</option>
+        <option value="rcm">Cardiomyopathie restrictive</option>
+      </optgroup>
+      <optgroup label="Valvulopathies">
+        <option value="as">Sténose aortique</option>
+        <option value="ar">Insuffisance aortique</option>
+        <option value="ms">Sténose mitrale</option>
+        <option value="mr">Insuffisance mitrale</option>
+        <option value="tr">Insuffisance tricuspidienne</option>
+        <option value="ps">Sténose pulmonaire</option>
+      </optgroup>
+      <optgroup label="États de choc">
+        <option value="cardio">Choc cardiogénique</option>
+        <option value="hypo">Choc hypovolémique</option>
+        <option value="neuro">Choc neurogénique</option>
+        <option value="ana">Choc anaphylactique</option>
+        <option value="septic">Choc septique — profil hyperdynamique</option>
+      </optgroup>
+    </select>
+  </div>
+  <button id="normalBtn" class="primary" type="button">Revenir au normal</button>
+</div>
+
+<div class="note" style="margin-bottom:14px">
+  <strong>Approche pédagogique :</strong> les <strong>plages de pression intracardiaques normales</strong> sont vérifiées à partir du Manuel MSD (édition professionnelle). 
+  Les <strong>scénarios cliniques, chaînes physiopathologiques, explications et profils pathologiques</strong> sont des créations pédagogiques originales conçues pour faciliter le raisonnement hémodynamique. 
+  Les valeurs pathologiques sont des <strong>exemples représentatifs</strong> et non des critères diagnostiques absolus.
+</div>
+
+<div class="grid">
+<section class="panel">
+  <div class="statusline">
+    <div>
+      <div class="badge" id="modeBadge">NORMAL</div>
+      <h2 id="title" style="margin:7px 0 3px">Circulation normale</h2>
+      <div id="summary" class="summary"></div>
+    </div>
+    <div class="help"><strong>Lecture :</strong> gris = cœur droit / AP · rose = cœur gauche / PAPO / TA · ● vert normal · ● bleu bas · ● rouge haut</div>
+  </div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 1080 750" role="img" aria-label="Schéma interactif de l'hémodynamie cardiaque">
+      <defs>
+        <marker id="arrB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#737d88"/></marker>
+        <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#c56c88"/></marker>
+      </defs>
+
+      <ellipse cx="490" cy="92" rx="150" ry="64" fill="#e8f7f9" stroke="#7fbac3" stroke-width="2"/>
+      <text x="490" y="82" text-anchor="middle" font-size="20" font-weight="900" fill="#244753">POUMONS</text>
+      <text x="490" y="104" text-anchor="middle" font-size="12" fill="#667085" id="lungCaption">Pression pulmonaire normale</text>
+
+      <rect x="365" y="625" width="250" height="55" rx="23" fill="#fff0f1" stroke="#d99b9f" stroke-width="2"/>
+      <text x="490" y="649" text-anchor="middle" font-size="18" font-weight="900" fill="#5e2f34">CIRCULATION SYSTÉMIQUE</text>
+      <text x="490" y="668" text-anchor="middle" font-size="12" fill="#667085" id="systemCaption">Perfusion systémique normale</text>
+
+      <path id="venous" class="flow" stroke="#737d88" marker-end="url(#arrB)" d="M365 652 C205 635,105 500,125 355"/>
+      <path id="raRv" class="flow" stroke="#737d88" marker-end="url(#arrB)" d="M255 325 C285 338,315 370,330 410"/>
+      <path id="rvPa" class="flow" stroke="#737d88" marker-end="url(#arrB)" d="M385 392 C385 245,400 180,455 150"/>
+      <path id="pvLa" class="flow" stroke="#737d88" marker-end="url(#arrR)" d="M525 150 C595 170,655 240,690 304"/>
+      <path id="laLv" class="flow" stroke="#c56c88" marker-end="url(#arrR)" d="M700 360 C660 382,625 405,615 432"/>
+      <path id="lvAo" class="flow" stroke="#c56c88" marker-end="url(#arrR)" d="M575 475 C565 550,550 610,520 632"/>
+
+      <g id="heartGroup" class="compress">
+        <path id="heartShell" d="M490 210
+          C548 172, 666 173, 736 232
+          C806 291, 822 395, 762 475
+          C695 564, 585 595, 490 575
+          C394 595, 283 563, 220 475
+          C160 392, 176 290, 245 232
+          C314 173, 432 172, 490 210 Z"
+          fill="#ffffff" opacity="0.55" stroke="#cfd7e1" stroke-width="2"/>
+        <path id="pericardium" class="pericardium" d="M225 238
+          C300 165, 432 165, 492 196
+          C550 164, 688 169, 794 252
+          C857 330, 849 444, 777 518
+          C710 586, 596 614, 492 602
+          C387 613, 269 584, 207 510
+          C144 434, 151 316, 225 238 Z"/>
+        <path id="ra" class="chamber" d="M154 251
+          C118 265, 108 342, 139 381
+          C171 420, 241 422, 280 389
+          C306 367, 309 314, 291 281
+          C274 250, 240 237, 205 239
+          C186 240, 169 244, 154 251 Z"
+          fill="var(--right)"/>
+        <path id="rv" class="chamber" d="M282 348
+          C248 374, 244 444, 281 489
+          C319 536, 403 549, 472 530
+          C503 522, 518 501, 516 474
+          C511 415, 466 350, 410 328
+          C366 311, 316 324, 282 348 Z"
+          fill="var(--right)"/>
+        <path id="la" class="chamber" d="M710 242
+          C672 254, 658 340, 694 380
+          C727 418, 796 418, 828 382
+          C859 347, 856 286, 821 255
+          C791 230, 748 228, 710 242 Z"
+          fill="var(--left)"/>
+        <path id="lv" class="chamber" d="M525 336
+          C478 371, 470 458, 505 524
+          C534 577, 604 592, 659 568
+          C720 542, 754 474, 754 410
+          C754 357, 726 322, 684 307
+          C621 286, 565 307, 525 336 Z"
+          fill="var(--left)"/>
+        <path d="M490 225 C470 275, 468 328, 485 392 C502 458, 500 516, 490 566" fill="none" stroke="#b8c2cc" stroke-width="4" opacity="0.7"/>
+        <text x="210" y="292" text-anchor="middle" font-size="34" font-weight="950" fill="#39424c">OD</text>
+        <text x="378" y="418" text-anchor="middle" font-size="32" font-weight="950" fill="#39424c">VD</text>
+        <text x="770" y="284" text-anchor="middle" font-size="34" font-weight="950" fill="#8d4f66">OG</text>
+        <text x="612" y="420" text-anchor="middle" font-size="32" font-weight="950" fill="#8d4f66">VG</text>
+        <g id="tamponadeTag" opacity="0">
+        <rect x="342" y="220" width="300" height="34" rx="16" fill="#efe6fb" stroke="#7e4ca7" stroke-width="2"/>
+        <text id="tamponadeLabel" x="492" y="242" text-anchor="middle" font-size="18" font-weight="900" fill="#7e4ca7">PRESSION PÉRICARDIQUE ↑</text>
+      </g>
+      </g>
+
+      <g id="pcRA" class="pressure-card">
+        <rect x="120" y="300" width="180" height="62" rx="10" class="right-card"/><circle id="dotRA" class="state-dot state-normal" cx="286" cy="314" r="8"/>
+        <text x="210" y="327" class="pressure-label">Pression OD / PVC</text>
+        <text id="pRA" x="210" y="347" class="pressure-value">3 mmHg</text>
+        <text id="rRA" x="210" y="359" class="pressure-ref">normal 0–8</text>
+      </g>
+
+      <g id="pcRV" class="pressure-card">
+        <rect x="285" y="425" width="190" height="78" rx="12" class="right-card"/><circle id="dotRV" class="state-dot state-normal" cx="461" cy="439" r="8"/>
+        <text x="380" y="446" class="pressure-label">VENTRICULE DROIT</text>
+        <text id="pRVS" x="380" y="469" class="pressure-value">Syst. 25</text>
+        <text id="pRVD" x="380" y="491" class="pressure-value" style="font-size:18px">PTD 4 mmHg</text>
+        <text id="rRV" x="380" y="500" class="pressure-ref">normal : syst. 15–30 · PTD 0–8</text>
+      </g>
+
+      <g id="pcLA" class="pressure-card">
+        <rect x="680" y="300" width="180" height="62" rx="10" class="left-card"/><circle id="dotLA" class="state-dot state-normal" cx="846" cy="314" r="8"/>
+        <text x="770" y="327" class="pressure-label">Pression OG</text>
+        <text id="pLA" x="770" y="347" class="pressure-value">8 mmHg</text>
+        <text id="rLA" x="770" y="359" class="pressure-ref">normal 2–12</text>
+      </g>
+
+      <g id="pcLV" class="pressure-card">
+        <rect x="510" y="425" width="198" height="78" rx="12" class="left-card"/><circle id="dotLV" class="state-dot state-normal" cx="694" cy="439" r="8"/>
+        <text x="609" y="446" class="pressure-label">VENTRICULE GAUCHE</text>
+        <text id="pLVS" x="609" y="469" class="pressure-value">Syst. 130</text>
+        <text id="pLVD" x="609" y="491" class="pressure-value" style="font-size:18px">PTD 9 mmHg</text>
+        <text id="rLV" x="609" y="500" class="pressure-ref">normal : syst. 90–140 · PTD 5–12</text>
+      </g>
+
+      <g id="pcPA" class="pressure-card">
+        <rect x="300" y="160" width="215" height="68" rx="10" class="right-card"/><circle id="dotPA" class="state-dot state-normal" cx="500" cy="175" r="8"/>
+        <text x="418" y="184" class="pressure-label">AP · Artère pulmonaire</text>
+        <text id="pPA" x="418" y="205" class="pressure-value">25 / 9 (15)</text>
+        <text id="rPA" x="418" y="219" class="pressure-ref">moyenne normale 9–16</text>
+      </g>
+
+      <g id="pcW" class="pressure-card">
+        <rect x="550" y="160" width="200" height="68" rx="10" class="left-card"/><circle id="dotW" class="state-dot state-normal" cx="735" cy="175" r="8"/>
+        <text x="640" y="184" class="pressure-label">PAPO · cœur gauche</text>
+        <text id="pW" x="640" y="205" class="pressure-value">9 mmHg</text>
+        <text id="rW" x="640" y="219" class="pressure-ref">normal 2–12</text>
+      </g>
+
+      <g id="pcAo" class="pressure-card">
+        <rect x="710" y="610" width="235" height="72" rx="10" class="left-card"/><circle id="dotAo" class="state-dot state-normal" cx="930" cy="626" r="8"/>
+        <text x="827" y="630" class="pressure-label">TA / PAM · systémique</text>
+        <text id="pAo" x="827" y="652" class="pressure-value">130 / 70</text>
+        <text id="rAo" x="827" y="668" class="pressure-ref">PAM ≈ 85 mmHg</text>
+      </g>
+
+      <circle class="pulse-dot" fill="#737d88"><animateMotion id="anim1" dur="2.4s" repeatCount="indefinite"><mpath href="#venous"/></animateMotion></circle>
+      <circle class="pulse-dot" fill="#737d88"><animateMotion id="anim2" dur="2.0s" repeatCount="indefinite"><mpath href="#rvPa"/></animateMotion></circle>
+      <circle class="pulse-dot" fill="#c56c88"><animateMotion id="anim3" dur="2.0s" repeatCount="indefinite"><mpath href="#pvLa"/></animateMotion></circle>
+      <circle class="pulse-dot" fill="#c56c88"><animateMotion id="anim4" dur="2.4s" repeatCount="indefinite"><mpath href="#lvAo"/></animateMotion></circle>
+    </svg>
+  </div>
+
+  <div class="legend"><span class="n">● Vert = normal</span><span class="l">● Bleu = bas</span><span class="h">● Rouge = haut</span><span class="p">● Mauve = pression péricardique</span></div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:.86rem;color:#667085">
+    <span style="display:inline-flex;align-items:center;gap:6px"><i style="width:18px;height:12px;border-radius:3px;background:var(--right);border:1px solid var(--right-stroke)"></i> Côté droit : OD · VD · AP</span>
+    <span style="display:inline-flex;align-items:center;gap:6px"><i style="width:18px;height:12px;border-radius:3px;background:var(--left);border:1px solid var(--left-stroke)"></i> Côté gauche : OG · VG · PAPO · TA/PAM</span><span style="display:inline-flex;align-items:center;gap:6px"><i style="width:18px;height:12px;border-radius:3px;background:var(--purple);opacity:.45;border:1px solid #7e4ca7"></i> Tamponnade : pression péricardique</span>
+  </div>
+</section>
+
+<aside class="panel">
+  <h3>Ce qui change</h3>
+  <div class="kpis">
+    <div class="kpi"><div class="lab">Débit cardiaque</div><div id="co" class="val">5,3 L/min</div><div id="coTrend" class="trend same">≈ normal</div></div>
+    <div class="kpi"><div class="lab">PAM</div><div id="map" class="val">85 mmHg</div><div id="mapTrend" class="trend same">≈ normal</div></div>
+    <div class="kpi"><div class="lab">Précharge VD</div><div id="preR" class="val">Normale</div><div id="preRTrend" class="trend same">≈</div></div>
+    <div class="kpi"><div class="lab">Précharge VG</div><div id="preL" class="val">Normale</div><div id="preLTrend" class="trend same">≈</div></div>
+    <div class="kpi"><div class="lab">RVS</div><div id="svr" class="val">1300</div><div id="svrTrend" class="trend same">≈ profil de référence</div></div>
+    <div class="kpi"><div class="lab">RVP</div><div id="pvr" class="val">120</div><div id="pvrTrend" class="trend same">≈ profil de référence</div></div>
+  </div>
+
+  <div class="compare">
+    <h3 style="margin-bottom:4px">Chaîne physiopathologique</h3>
+    <div id="chain" class="chain"></div>
+  </div>
+
+  <div class="compare">
+    <h3 style="margin-bottom:5px">Normal → pathologie</h3>
+    <table>
+      <thead><tr><th>Variable</th><th>Normal</th><th id="pathCol">Actuel</th></tr></thead>
+      <tbody id="comparisonRows"></tbody>
+    </table>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-tag">Situation clinique</div>
+    <h4 id="caseTitle">Contexte clinique type</h4>
+    <p id="caseText"></p>
+    <ul id="caseBullets"></ul>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-tag">À relier à l’hémodynamie</div>
+    <h4>Indices à rechercher</h4>
+    <ul id="hemoBullets"></ul>
+  </div>
+
+  <div class="scenario-card">
+    <div class="scenario-tag">Si non traité</div>
+    <h4>Conséquences attendues</h4>
+    <ul id="untreatedBullets"></ul>
+  </div>
+
+  <div class="note teacher-note"><strong>Pourquoi pas une pression moyenne pour les ventricules?</strong> Pour le VD et le VG, le MSD présente surtout le <strong>pic systolique</strong> et la <strong>pression télédiastolique (PTD)</strong>. La PTD est particulièrement utile ici parce qu’elle illustre le remplissage et l’élévation des pressions diastoliques.</div>
+  <div id="clinical" class="note"></div>
+  <div id="source" class="source"></div>
+</aside>
+</div>
+</main>
+
+<script>
+(function(){
+const data={
+normal:{
+ title:"Circulation normale",badge:"NORMAL",summary:"Profil de référence : le cœur droit reçoit le retour veineux, le VD propulse le sang vers les poumons et le VG maintient la perfusion systémique.",
+ ra:3,rv:"25 / 4",rvDia:4,la:8,lv:"130 / 9",lvDia:9,pa:"25 / 9 (15)",mpap:15,w:9,ao:"130 / 70",map:85,co:5.3,svr:1300,pvr:120,
+ preR:0,preL:0,flow:"normal",pericardium:false,
+ chain:["Retour veineux adéquat","Remplissage ventriculaire normal","VES et débit cardiaque adéquats","Pressions pulmonaires normales","Perfusion systémique adéquate"],
+ caseTitle:"Patient de référence",
+ caseText:"Adulte stable, sans symptôme cardiorespiratoire majeur. Ce profil sert de point de comparaison pour toutes les pathologies.",
+ caseBullets:["Tolérance habituelle à l’effort.","Absence de congestion pulmonaire ou systémique.","Perfusion périphérique adéquate."],
+ hemoBullets:["PVC/OD basse-normale.","PAP moyenne et PAPO normales.","PTD des ventricules dans les plages habituelles.","Débit cardiaque et PAM adéquats."],
+ untreatedBullets:["Aucune conséquence pathologique : il s’agit du profil de référence."],
+ clinical:"Utilisez ce profil pour comparer rapidement ce qui monte, ce qui baisse et où le sang s’accumule."
+},
+tamponade:{
+ title:"Tamponnade cardiaque",badge:"TAMPONNADE",summary:"Une pression péricardique croissante comprime le cœur et limite le remplissage diastolique des cavités.",
+ ra:18,rv:"32 / 18",rvDia:18,la:18,lv:"95 / 18",lvDia:18,pa:"32 / 20 (24)",mpap:24,w:18,ao:"90 / 58",map:69,co:3.1,svr:1550,pvr:180,
+ preR:2,preL:-2,flow:"low",pericardium:true,
+ chain:["Épanchement sous pression","↑ pression péricardique","Compression diastolique","↓ remplissage ventriculaire","Égalisation des pressions diastoliques","↓ VES et ↓ débit cardiaque","Hypotension"],
+ caseTitle:"Cas : détérioration après épanchement péricardique",
+ caseText:"Une patiente de 58 ans suivie pour une néoplasie devient progressivement dyspnéique et faible. Sa TA chute, sa FC augmente et les jugulaires sont distendues.",
+ caseBullets:["Dyspnée et malaise progressifs.","Tachycardie, hypotension et turgescence jugulaire.","Le problème principal n’est pas la contractilité : c’est le remplissage."],
+ hemoBullets:["PVC/OD très élevée.","PTD VD, PAPO et PTD VG deviennent anormalement proches.","Le débit cardiaque chute malgré des pressions de remplissage mesurées élevées.","La RVS augmente secondairement pour tenter de maintenir la PAM."],
+ untreatedBullets:["Aggravation du choc obstructif.","Hypoperfusion rénale et cérébrale.","Défaillance multiviscérale, arrêt cardiaque et décès."],
+ clinical:"La pression péricardique externe crée un paradoxe : les pressions mesurées sont élevées, mais le volume réellement admis dans les ventricules est insuffisant."
+},
+lvhf:{
+ title:"Insuffisance cardiaque gauche",badge:"IC GAUCHE",summary:"Le VG se vide mal : le débit antérograde diminue tandis que la pression remonte vers l’OG et les poumons.",
+ ra:8,rv:"42 / 8",rvDia:8,la:24,lv:"105 / 24",lvDia:24,pa:"42 / 24 (30)",mpap:30,w:24,ao:"100 / 64",map:76,co:3.6,svr:1500,pvr:220,
+ preR:1,preL:2,flow:"low",pericardium:false,
+ chain:["↓ fonction du VG","↑ volume/pression télédiastolique VG","↑ pression OG / PAPO","↑ pression veineuse pulmonaire","Congestion pulmonaire","↓ débit systémique"],
+ caseTitle:"Cas : dyspnée et orthopnée",
+ caseText:"Un homme de 68 ans avec antécédent d’infarctus présente une dyspnée qui s’aggrave, de l’orthopnée et une fatigue marquée.",
+ caseBullets:["Dyspnée d’effort puis au repos.","Orthopnée et crépitants pulmonaires.","Fatigue liée au débit systémique réduit."],
+ hemoBullets:["PTDVG et PAPO élevées.","PAP secondairement élevée par transmission rétrograde.","Débit cardiaque diminué.","RVS souvent augmentée par compensation sympathique."],
+ untreatedBullets:["Œdème pulmonaire.","Hypoperfusion rénale et aggravation de la rétention hydrosodée.","Arythmies, choc cardiogénique ou défaillance multiviscérale."],
+ clinical:"Deux problèmes coexistent : congestion en amont du VG et hypoperfusion en aval."
+},
+rvhf:{
+ title:"Insuffisance cardiaque droite / cœur pulmonaire",badge:"IC DROITE",summary:"Le VD ne parvient plus à éjecter efficacement vers les poumons, ce qui fait remonter la pression dans l’OD et les veines systémiques.",
+ ra:16,rv:"45 / 16",rvDia:16,la:9,lv:"102 / 9",lvDia:9,pa:"45 / 22 (30)",mpap:30,w:9,ao:"102 / 66",map:78,co:4.0,svr:1380,pvr:420,
+ preR:2,preL:-1,flow:"low",pericardium:false,
+ chain:["↑ postcharge du VD ou dysfonction VD","↓ vidange du VD","↑ pression OD/PVC","Congestion veineuse systémique","↓ débit pulmonaire","↓ remplissage du VG"],
+ caseTitle:"Cas : œdèmes et turgescence jugulaire",
+ caseText:"Une patiente avec maladie pulmonaire chronique développe œdèmes des jambes, distension jugulaire, fatigue et inconfort abdominal.",
+ caseBullets:["Œdèmes périphériques et prise de poids.","Turgescence jugulaire et congestion hépatique possible.","Dyspnée souvent liée à la maladie pulmonaire sous-jacente."],
+ hemoBullets:["PVC/OD élevée.","PTD VD élevée.","PAP souvent élevée si la cause est une HTP.","PAPO peut rester normale si le VG n’est pas la cause."],
+ untreatedBullets:["Congestion systémique croissante.","Diminution du débit vers le VG et de la perfusion systémique.","Dysfonction rénale/hépatique et défaillance droite avancée."],
+ clinical:"Une pression droite élevée avec PAPO relativement normale oriente vers un problème prédominant du cœur droit."
+},
+phtn:{
+ title:"Hypertension pulmonaire précapillaire",badge:"HTP",summary:"La résistance vasculaire pulmonaire élevée augmente la postcharge du VD sans nécessairement augmenter la PAPO.",
+ ra:12,rv:"62 / 12",rvDia:12,la:10,lv:"110 / 10",lvDia:10,pa:"62 / 30 (41)",mpap:41,w:10,ao:"110 / 70",map:84,co:4.4,svr:1350,pvr:560,
+ preR:2,preL:-1,flow:"low",pericardium:false,
+ chain:["↑ RVP","↑ PAP","↑ postcharge VD","Hypertrophie puis dilatation du VD","↓ réserve de débit","Insuffisance droite progressive"],
+ caseTitle:"Cas : dyspnée d’effort et présyncope",
+ caseText:"Une femme de 45 ans présente une dyspnée progressive à l’effort, de la fatigue et deux épisodes de présyncope en montant des escaliers.",
+ caseBullets:["Dyspnée d’effort et fatigabilité.","Présyncope/syncope lorsque le débit ne peut augmenter suffisamment.","Possibles signes tardifs d’insuffisance droite."],
+ hemoBullets:["PAP moyenne nettement élevée.","RVP très élevée.","PAPO normale ou peu élevée.","Pression systolique VD fortement augmentée."],
+ untreatedBullets:["Hypertrophie puis dilatation du VD.","Insuffisance cardiaque droite.","Baisse progressive du débit cardiaque et syncope, puis décès dans les formes avancées."],
+ clinical:"Le contraste clé est PAP/RVP élevées avec PAPO relativement normale."
+},
+pe:{
+ title:"Embolie pulmonaire massive",badge:"EP MASSIVE",summary:"Une obstruction aiguë du lit pulmonaire crée brutalement une forte postcharge pour le VD.",
+ ra:15,rv:"58 / 15",rvDia:15,la:6,lv:"86 / 6",lvDia:6,pa:"55 / 26 (36)",mpap:36,w:6,ao:"86 / 50",map:62,co:3.4,svr:1450,pvr:700,
+ preR:2,preL:-2,flow:"verylow",pericardium:false,
+ chain:["Obstruction pulmonaire aiguë","↑ RVP","↑ postcharge VD","Dilatation / défaillance VD","↓ débit pulmonaire","↓ précharge VG","↓ PAM"],
+ caseTitle:"Cas : dyspnée brutale avec hypotension",
+ caseText:"Un patient de 62 ans, immobilisé depuis une chirurgie récente, développe soudainement dyspnée, douleur thoracique, tachycardie et hypotension.",
+ caseBullets:["Début aigu.","Dyspnée, douleur pleurale, tachypnée.","Syncope ou hypotension si l’obstruction est majeure."],
+ hemoBullets:["PAP et pression droite augmentent rapidement.","PAPO basse ou normale.","Le VG devient sous-rempli.","Le débit cardiaque et la PAM diminuent."],
+ untreatedBullets:["Choc obstructif.","Ischémie et défaillance aiguë du VD.","Arrêt cardiorespiratoire et décès."],
+ clinical:"Ici, le cœur gauche est surtout victime d’un manque de retour, non d’une défaillance primaire du VG."
+},
+dcm:{
+ title:"Cardiomyopathie dilatée",badge:"CMD",summary:"Les ventricules dilatés se contractent moins efficacement : la fraction d’éjection et le débit diminuent tandis que les pressions de remplissage montent.",
+ ra:12,rv:"42 / 12",rvDia:12,la:20,lv:"95 / 22",lvDia:22,pa:"42 / 22 (30)",mpap:30,w:20,ao:"96 / 60",map:72,co:3.4,svr:1500,pvr:200,
+ preR:2,preL:2,flow:"low",pericardium:false,
+ chain:["Dilatation ventriculaire","↓ efficacité contractile","↑ volume résiduel","↑ pressions de remplissage","↓ VES et débit","Congestion gauche ± droite"],
+ caseTitle:"Cas : fatigue, cardiomégalie et œdèmes",
+ caseText:"Un homme de 52 ans présente fatigue progressive, dyspnée, orthopnée et œdèmes. L’échographie montre un VG très dilaté avec fraction d’éjection réduite.",
+ caseBullets:["Dyspnée et fatigue.","Signes possibles d’insuffisance biventriculaire.","Souffle fonctionnel mitral ou tricuspide possible par dilatation annulaire."],
+ hemoBullets:["PTDVG et PAPO élevées.","Débit cardiaque bas.","PVC peut augmenter lorsque le VD est aussi atteint.","RVS augmente souvent comme compensation."],
+ untreatedBullets:["Progression de l’insuffisance cardiaque.","Arythmies et thrombus intracavitaires possibles.","Choc cardiogénique ou mort subite dans les formes sévères."],
+ clinical:"Le ventricule est grand mais inefficace : davantage de volume ne signifie pas davantage de débit."
+},
+hcm:{
+ title:"Cardiomyopathie hypertrophique obstructive",badge:"CMH OBSTRUCTIVE",summary:"Un VG hypertrophié et peu compliant se remplit difficilement; l’obstruction dynamique peut créer un fort gradient entre VG et aorte.",
+ ra:5,rv:"28 / 5",rvDia:5,la:15,lv:"180 / 18",lvDia:18,pa:"30 / 14 (20)",mpap:20,w:15,ao:"105 / 65",map:82,co:4.4,svr:1350,pvr:130,
+ preR:0,preL:1,flow:"low",pericardium:false,
+ chain:["Hypertrophie VG","↓ compliance diastolique","↑ PTDVG","Obstruction dynamique de la chambre de chasse","Gradient VG–aorte","↓ remplissage et débit à l’effort"],
+ caseTitle:"Cas : syncope à l’effort",
+ caseText:"Un jeune adulte présente dyspnée, douleur thoracique et syncope pendant un effort intense. Le VG est hypertrophié et un gradient dynamique est observé à l’éjection.",
+ caseBullets:["Dyspnée, angor ou syncope à l’effort.","B4 et souffle systolique possible.","Les symptômes peuvent s’accentuer quand le remplissage diminue."],
+ hemoBullets:["PTDVG élevée par mauvaise compliance.","Pression systolique VG très élevée.","Pression aortique beaucoup plus basse : gradient d’éjection.","Débit normal au repos mais réserve limitée."],
+ untreatedBullets:["Arythmies auriculaires ou ventriculaires.","Aggravation de l’obstruction et de l’insuffisance diastolique.","Syncope, insuffisance cardiaque ou mort subite chez certains patients."],
+ clinical:"Le problème majeur n’est pas un VG « faible » mais un VG épais, rigide et parfois obstructif."
+},
+rcm:{
+ title:"Cardiomyopathie restrictive",badge:"CM RESTRICTIVE",summary:"Les ventricules rigides résistent au remplissage : les pressions diastoliques augmentent malgré une contractilité parfois relativement préservée.",
+ ra:14,rv:"36 / 14",rvDia:14,la:18,lv:"120 / 20",lvDia:20,pa:"38 / 20 (27)",mpap:27,w:18,ao:"112 / 68",map:82,co:4.3,svr:1400,pvr:170,
+ preR:2,preL:2,flow:"low",pericardium:false,
+ chain:["Parois ventriculaires peu compliantes","↓ remplissage diastolique","↑ pressions télédiastoliques","↑ pressions auriculaires","Congestion","Débit normal-bas"],
+ caseTitle:"Cas : dyspnée avec ventricules non dilatés",
+ caseText:"Une patiente de 64 ans présente dyspnée, fatigue, œdèmes et distension jugulaire. Les ventricules ne sont pas très dilatés, mais le remplissage diastolique est sévèrement limité.",
+ caseBullets:["Dyspnée et fatigue.","Congestion droite et/ou gauche.","Aspect parfois trompeur : la taille ventriculaire peut sembler relativement normale."],
+ hemoBullets:["PTD du VD et du VG élevées.","PAPO et PVC élevées.","Débit normal-bas.","La difficulté est principalement diastolique."],
+ untreatedBullets:["Congestion chronique et baisse progressive du débit.","Insuffisance biventriculaire.","Arythmies et défaillance d’organes dans les formes avancées."],
+ clinical:"Le cœur peut sembler de taille raisonnable, mais il n’accepte pas facilement le volume pendant la diastole."
+},
+as:{
+ title:"Sténose aortique",badge:"STÉNOSE AORTIQUE",summary:"Une valve aortique rétrécie crée un obstacle fixe à l’éjection du VG et une surcharge de pression.",
+ ra:6,rv:"30 / 6",rvDia:6,la:16,lv:"190 / 18",lvDia:18,pa:"34 / 17 (23)",mpap:23,w:16,ao:"110 / 70",map:83,co:4.0,svr:1360,pvr:140,
+ preR:0,preL:2,flow:"low",pericardium:false,
+ chain:["Orifice aortique rétréci","↑ postcharge VG","↑ pression systolique VG","Hypertrophie concentrique","↓ compliance","↓ réserve de débit"],
+ caseTitle:"Cas : angor, dyspnée et syncope d’effort",
+ caseText:"Un patient de 77 ans présente dyspnée, oppression thoracique et étourdissements à l’effort. Un souffle systolique rude est entendu.",
+ caseBullets:["Dyspnée d’effort.","Angor possible malgré des coronaires normales.","Syncope à l’effort dans les formes sévères."],
+ hemoBullets:["Pression systolique VG très élevée.","Pression aortique nettement plus basse : gradient VG–aorte.","PTDVG peut augmenter avec la baisse de compliance.","Débit limité surtout à l’effort."],
+ untreatedBullets:["Hypertrophie puis dysfonction du VG.","Insuffisance cardiaque et congestion pulmonaire.","Syncope, arythmies et risque de décès."],
+ clinical:"Le contraste visuel clé est le gradient de pression entre le VG et l’aorte."
+},
+ar:{
+ title:"Insuffisance aortique",badge:"INSUFFISANCE AORTIQUE",summary:"Une partie du sang retourne de l’aorte vers le VG pendant la diastole, créant une surcharge volumique du VG.",
+ ra:5,rv:"28 / 5",rvDia:5,la:12,lv:"155 / 16",lvDia:16,pa:"30 / 14 (20)",mpap:20,w:12,ao:"150 / 55",map:87,co:4.3,svr:1100,pvr:130,
+ preR:0,preL:2,flow:"normal",pericardium:false,
+ chain:["Valve aortique incompétente","Reflux diastolique aorte → VG","↑ volume télédiastolique VG","Dilatation du VG","↑ VES total mais ↓ rendement antérograde","Insuffisance VG tardive"],
+ caseTitle:"Cas : dyspnée et pression pulsée large",
+ caseText:"Une patiente de 59 ans rapporte palpitations et dyspnée progressive. La TA montre une systolique élevée et une diastolique basse.",
+ caseBullets:["Palpitations et dyspnée progressive.","Pression pulsée large.","Souffle diastolique possible."],
+ hemoBullets:["Surcharge volumique du VG : PTDVG augmente.","Pression systolique aortique élevée mais diastolique basse.","Débit antérograde utile peut devenir insuffisant malgré un VES total important."],
+ untreatedBullets:["Dilatation progressive du VG.","Insuffisance systolique gauche.","Congestion pulmonaire, arythmies et décompensation."],
+ clinical:"Le sang fait une boucle inutile : VG → aorte → retour au VG pendant la diastole."
+},
+ms:{
+ title:"Sténose mitrale",badge:"STÉNOSE MITRALE",summary:"L’obstacle mitral empêche le sang de passer facilement de l’OG vers le VG pendant la diastole.",
+ ra:9,rv:"42 / 9",rvDia:9,la:22,lv:"105 / 8",lvDia:8,pa:"46 / 26 (34)",mpap:34,w:22,ao:"105 / 65",map:78,co:4.0,svr:1320,pvr:250,
+ preR:1,preL:-1,flow:"low",pericardium:false,
+ chain:["Orifice mitral rétréci","Obstacle OG → VG","↑ pression OG / PAPO","Congestion pulmonaire","HTP secondaire","↓ remplissage VG et débit"],
+ caseTitle:"Cas : dyspnée avec fibrillation auriculaire",
+ caseText:"Une femme de 54 ans présente dyspnée, palpitations et baisse de tolérance à l’effort. Elle développe une fibrillation auriculaire.",
+ caseBullets:["Dyspnée et fatigabilité.","Palpitations, souvent aggravées par tachycardie.","Risque de congestion pulmonaire."],
+ hemoBullets:["PAPO/OG élevée mais PTDVG relativement normale.","Gradient diastolique entre OG et VG.","PAP augmente secondairement.","Débit diminue si le remplissage VG devient insuffisant."],
+ untreatedBullets:["Hypertension pulmonaire secondaire.","Insuffisance cardiaque droite.","Thrombus auriculaire et événements emboliques possibles."],
+ clinical:"Le signe conceptuel important est une pression OG élevée alors que la pression diastolique du VG reste relativement normale."
+},
+mr:{
+ title:"Insuffisance mitrale",badge:"INSUFFISANCE MITRALE",summary:"Pendant la systole, une partie du sang retourne du VG vers l’OG au lieu d’être envoyée dans l’aorte.",
+ ra:7,rv:"42 / 7",rvDia:7,la:22,lv:"115 / 16",lvDia:16,pa:"46 / 25 (33)",mpap:33,w:22,ao:"105 / 65",map:78,co:4.4,svr:1250,pvr:180,
+ preR:1,preL:2,flow:"low",pericardium:false,
+ chain:["Fermeture mitrale incomplète","Régurgitation VG → OG","↑ volume/pression OG","Congestion pulmonaire","Surcharge volumique VG","↓ débit antérograde utile"],
+ caseTitle:"Cas : dyspnée après rupture de cordage",
+ caseText:"Un patient développe soudainement dyspnée importante et œdème pulmonaire après une rupture de cordage mitral.",
+ caseBullets:["Dyspnée aiguë ou chronique selon l’évolution.","Souffle holosystolique possible.","Congestion pulmonaire si la pression OG augmente rapidement."],
+ hemoBullets:["PAPO/OG élevée.","PTDVG peut augmenter par surcharge volumique.","Le débit total du VG peut sembler correct, mais une partie est régurgitée.","La perfusion systémique utile diminue."],
+ untreatedBullets:["Dilatation OG puis VG.","HTP et insuffisance droite secondaire.","Insuffisance cardiaque et arythmies."],
+ clinical:"Une partie du VES prend la mauvaise direction : le débit antérograde est moindre que le débit total éjecté par le VG."
+},
+tr:{
+ title:"Insuffisance tricuspidienne",badge:"INSUFFISANCE TRICUSPIDE",summary:"Pendant la systole, une partie du sang retourne du VD vers l’OD, augmentant la congestion veineuse systémique.",
+ ra:18,rv:"32 / 10",rvDia:10,la:10,lv:"110 / 10",lvDia:10,pa:"28 / 14 (19)",mpap:19,w:10,ao:"108 / 66",map:80,co:4.2,svr:1300,pvr:120,
+ preR:2,preL:-1,flow:"low",pericardium:false,
+ chain:["Valve tricuspide incompétente","Régurgitation VD → OD","↑ pression OD","Congestion veineuse systémique","↓ débit pulmonaire efficace","↓ remplissage VG si sévère"],
+ caseTitle:"Cas : œdèmes, pulsations jugulaires et ascite",
+ caseText:"Un patient avec dilatation chronique du VD développe œdèmes, ascite et importantes pulsations jugulaires.",
+ caseBullets:["Œdèmes périphériques et ascite.","Pulsations veineuses jugulaires marquées.","Fatigue si le débit antérograde diminue."],
+ hemoBullets:["PVC/OD très élevée.","Pression pulmonaire peut être normale si la valve est le problème principal.","Débit vers les poumons devient moins efficace.","PAPO peut rester normale."],
+ untreatedBullets:["Congestion hépatique et abdominale chronique.","Dysfonction rénale par congestion veineuse.","Insuffisance droite progressive."],
+ clinical:"Le sang revient vers l’OD pendant la systole au lieu d’avancer vers l’artère pulmonaire."
+},
+ps:{
+ title:"Sténose pulmonaire",badge:"STÉNOSE PULMONAIRE",summary:"L’obstacle à la sortie du VD crée un gradient de pression VD–artère pulmonaire et une surcharge de pression du VD.",
+ ra:12,rv:"75 / 12",rvDia:12,la:8,lv:"110 / 8",lvDia:8,pa:"25 / 10 (15)",mpap:15,w:8,ao:"108 / 66",map:80,co:4.1,svr:1300,pvr:120,
+ preR:2,preL:-1,flow:"low",pericardium:false,
+ chain:["Valve pulmonaire rétrécie","↑ postcharge VD","↑ pression systolique VD","Gradient VD–AP","Hypertrophie VD","↓ débit pulmonaire si sévère"],
+ caseTitle:"Cas : souffle systolique et intolérance à l’effort",
+ caseText:"Un adulte avec sténose pulmonaire congénitale connue rapporte fatigue et dyspnée croissante à l’effort.",
+ caseBullets:["Dyspnée ou fatigue à l’effort.","Souffle d’éjection systolique.","Signes d’insuffisance droite dans les formes sévères."],
+ hemoBullets:["Pression systolique VD très élevée.","PAP peut rester normale ou basse malgré la pression VD élevée.","PVC augmente si le VD se décompense.","Débit pulmonaire peut diminuer."],
+ untreatedBullets:["Hypertrophie puis dysfonction VD.","Insuffisance tricuspide fonctionnelle.","Insuffisance cardiaque droite."],
+ clinical:"Le contraste clé est un VD à haute pression devant une AP qui n’est pas nécessairement hypertendue."
+},
+cardio:{
+ title:"Choc cardiogénique",badge:"CHOC CARDIOGÉNIQUE",summary:"La pompe myocardique ne génère plus un débit suffisant malgré des pressions de remplissage élevées.",
+ ra:14,rv:"45 / 14",rvDia:14,la:25,lv:"78 / 25",lvDia:25,pa:"45 / 26 (33)",mpap:33,w:25,ao:"74 / 44",map:54,co:2.9,svr:1700,pvr:220,
+ preR:2,preL:2,flow:"verylow",pericardium:false,
+ chain:["Défaillance de pompe","↓ VES","↓ débit cardiaque","↑ pression de remplissage","Vasoconstriction compensatrice","Congestion + hypoperfusion"],
+ caseTitle:"Cas : choc après infarctus étendu",
+ caseText:"Un patient post-infarctus devient pâle, froid, confus et hypotendu. Il urine très peu et présente des crépitants pulmonaires.",
+ caseBullets:["Hypotension et extrémités froides.","Oligurie et altération de l’état mental.","Congestion pulmonaire fréquente."],
+ hemoBullets:["Débit cardiaque très bas.","PAPO et PTDVG élevées.","RVS fortement élevée par compensation.","PAM basse malgré cette vasoconstriction."],
+ untreatedBullets:["Acidose lactique et hypoperfusion prolongée.","Défaillance multiviscérale.","Arythmies, arrêt cardiaque et décès."],
+ clinical:"Le cœur est plein mais n’éjecte pas suffisamment : bas débit + hautes pressions de remplissage."
+},
+hypo:{
+ title:"Choc hypovolémique",badge:"HYPOVOLÉMIE",summary:"Le volume circulant est insuffisant : le retour veineux, la précharge et le volume d’éjection diminuent.",
+ ra:2,rv:"18 / 2",rvDia:2,la:3,lv:"84 / 3",lvDia:3,pa:"18 / 8 (12)",mpap:12,w:3,ao:"84 / 50",map:62,co:3.8,svr:1650,pvr:150,
+ preR:-2,preL:-2,flow:"verylow",pericardium:false,
+ chain:["↓ volume intravasculaire","↓ retour veineux","↓ précharge","↓ VES","↓ débit cardiaque","Vasoconstriction compensatrice","Hypotension"],
+ caseTitle:"Cas : hémorragie digestive",
+ caseText:"Un patient avec hémorragie digestive importante devient tachycarde, hypotendu, pâle et très faible.",
+ caseBullets:["Contexte de perte liquidienne ou sanguine.","Peau froide et vasoconstriction périphérique.","Oligurie et confusion si aggravation."],
+ hemoBullets:["PVC et PAPO basses.","PTD VD et VG basses.","Débit cardiaque bas.","RVS élevée par activation sympathique."],
+ untreatedBullets:["Hypoxie tissulaire et acidose lactique.","Insuffisance rénale et neurologique.","Choc irréversible, défaillance multiviscérale et décès."],
+ clinical:"Contrairement au choc cardiogénique, le cœur manque surtout de volume à recevoir."
+},
+neuro:{
+ title:"Choc neurogénique",badge:"CHOC NEUROGÉNIQUE",summary:"La perte du tonus sympathique provoque une vasodilatation systémique et souvent une bradycardie, réduisant la pression de perfusion.",
+ ra:4,rv:"22 / 4",rvDia:4,la:7,lv:"90 / 7",lvDia:7,pa:"22 / 9 (14)",mpap:14,w:7,ao:"82 / 42",map:55,co:4.0,svr:650,pvr:110,
+ preR:-1,preL:-1,flow:"low",pericardium:false,
+ chain:["Atteinte sympathique","Vasodilatation veineuse et artérielle","↓ RVS + pooling veineux","↓ retour veineux","Bradycardie possible","↓ PAM"],
+ caseTitle:"Cas : traumatisme médullaire cervical",
+ caseText:"Après un traumatisme cervical, un patient est hypotendu mais sa fréquence cardiaque est anormalement basse pour un état de choc. Sa peau est chaude et sèche.",
+ caseBullets:["Hypotension après lésion médullaire haute.","Bradycardie ou absence de tachycardie compensatrice.","Peau chaude par perte du tonus vasoconstricteur."],
+ hemoBullets:["RVS très basse.","Pressions de remplissage basses ou normales-basses par pooling veineux.","Débit cardiaque diminué si la bradycardie et la baisse de précharge sont importantes.","PAPO non élevée."],
+ untreatedBullets:["Hypoperfusion cérébrale et rénale.","Aggravation des lésions secondaires de la moelle par mauvaise perfusion.","Défaillance d’organes si l’hypotension persiste."],
+ clinical:"Le signal distinctif est l’hypotension par vasodilatation avec une réponse tachycardique absente ou insuffisante."
+},
+ana:{
+ title:"Choc anaphylactique",badge:"ANAPHYLAXIE",summary:"Une vasodilatation massive et une fuite capillaire réduisent brutalement la RVS et le volume circulant efficace.",
+ ra:2,rv:"24 / 2",rvDia:2,la:3,lv:"95 / 4",lvDia:4,pa:"28 / 12 (18)",mpap:18,w:3,ao:"88 / 40",map:56,co:5.8,svr:600,pvr:180,
+ preR:-2,preL:-2,flow:"high",pericardium:false,
+ chain:["Réaction systémique aiguë","Vasodilatation","↑ perméabilité capillaire","↓ volume intravasculaire efficace","↓ RVS","Tachycardie / débit initialement élevé","Hypotension"],
+ caseTitle:"Cas : réaction après exposition allergénique",
+ caseText:"Quelques minutes après une exposition allergénique, une patiente développe urticaire, dyspnée, sifflements, œdème facial et hypotension.",
+ caseBullets:["Début très rapide.","Manifestations cutanées et respiratoires fréquentes.","Hypotension par vasodilatation et fuite capillaire."],
+ hemoBullets:["RVS très basse.","PVC et PAPO basses par perte de volume intravasculaire efficace.","Débit cardiaque peut être élevé au début grâce à la tachycardie, puis chuter si le choc progresse.","La PAM reste basse malgré le débit élevé."],
+ untreatedBullets:["Œdème des voies aériennes et hypoxémie.","Collapsus circulatoire.","Arrêt cardiorespiratoire et décès."],
+ clinical:"Le point clé est qu’un débit relativement élevé ne garantit pas une bonne PAM lorsque la RVS s’effondre."
+},
+septic:{
+ title:"Choc septique — profil hyperdynamique",badge:"CHOC SEPTIQUE",summary:"Dans la phase hyperdynamique, la vasodilatation systémique est majeure : la RVS chute et le débit cardiaque peut augmenter sans restaurer une perfusion efficace.",
+ ra:4,rv:"27 / 4",rvDia:4,la:7,lv:"100 / 8",lvDia:8,pa:"26 / 10 (16)",mpap:16,w:7,ao:"90 / 45",map:60,co:7.8,svr:550,pvr:100,
+ preR:-1,preL:-1,flow:"high",pericardium:false,
+ chain:["Infection + réponse inflammatoire","Vasodilatation systémique","↓ RVS","Maldistribution du débit + fuite capillaire","↑ débit cardiaque initial","PAM basse","Hypoperfusion cellulaire malgré circulation hyperdynamique"],
+ caseTitle:"Cas : sepsis avec peau chaude et hypotension",
+ caseText:"Un patient fébrile avec pneumonie devient confus et hypotendu. Ses extrémités sont d’abord chaudes et son pouls est bondissant malgré une PAM basse.",
+ caseBullets:["Fièvre ou hypothermie, tachycardie, tachypnée.","Hypotension malgré une circulation parfois hyperdynamique.","Altération de l’état mental et oligurie lorsque la perfusion devient inadéquate."],
+ hemoBullets:["RVS très basse.","Débit cardiaque souvent élevé au début.","PAPO normale-basse si fuite capillaire et vasoplégie.","La PAM reste basse parce que la vasodilatation domine."],
+ untreatedBullets:["Dysfonction microcirculatoire et acidose lactique.","Dépression myocardique possible avec baisse secondaire du débit.","Défaillance multiviscérale et décès."],
+ clinical:"Le profil septique peut évoluer : cette simulation montre la phase hyperdynamique précoce, pas toutes les phases possibles."
+}
+};
+const normal=data.normal;
+const $=id=>document.getElementById(id);
+function pressureClass(v,lo,hi){
+  if(v<lo)return "p-low"; if(v>hi)return "p-high"; return "p-normal";
+}
+function setState(dotId,cls){
+  const dot=$(dotId);
+  dot.setAttribute("class","state-dot "+(cls==="p-high"?"state-high":cls==="p-low"?"state-low":"state-normal"));
+}
+function trend(v,base,tol){
+  if(v>base+tol)return ["↑","high"];if(v<base-tol)return ["↓","low"];return ["≈","same"];
+}
+function level(n){return n>=2?"Très élevée":n==1?"Élevée":n<=-2?"Très basse":n==-1?"Basse":"Normale"}
+function render(key){
+ const d=data[key];
+ $("title").textContent=d.title;$("modeBadge").textContent=d.badge;$("summary").textContent=d.summary;
+ $("pRA").textContent=d.ra+" mmHg";
+ const rvParts=d.rv.split("/").map(x=>x.trim());
+ const lvParts=d.lv.split("/").map(x=>x.trim());
+ $("pRVS").textContent="Syst. "+rvParts[0]+" mmHg";
+ $("pRVD").textContent="PTD "+d.rvDia+" mmHg";
+ $("pLA").textContent=d.la+" mmHg";
+ $("pLVS").textContent="Syst. "+lvParts[0]+" mmHg";
+ $("pLVD").textContent="PTD "+d.lvDia+" mmHg";
+ $("pPA").textContent=d.pa;$("pW").textContent=d.w+" mmHg";$("pAo").textContent=d.ao;$("rAo").textContent="PAM "+d.map+" mmHg";
+ setState("dotRA",pressureClass(d.ra,0,8)); setState("dotRV",pressureClass(d.rvDia,0,8)); setState("dotLA",pressureClass(d.la,2,12));
+ setState("dotLV",pressureClass(d.lvDia,5,12)); setState("dotPA",pressureClass(d.mpap,9,16)); setState("dotW",pressureClass(d.w,2,12));
+ setState("dotAo",pressureClass(d.map,70,100));
+ function arrowTxt(v,lo,hi){ return v<lo?" ↓":v>hi?" ↑":" ≈"; }
+ $("pRA").textContent += arrowTxt(d.ra,0,8);
+ $("pRVD").textContent += arrowTxt(d.rvDia,0,8);
+ $("pLA").textContent += arrowTxt(d.la,2,12);
+ $("pLVD").textContent += arrowTxt(d.lvDia,5,12);
+ $("pPA").textContent += arrowTxt(d.mpap,9,16);
+ $("pW").textContent += arrowTxt(d.w,2,12);
+ $("rAo").textContent="PAM "+d.map+" mmHg"+arrowTxt(d.map,70,100);
+ $("pericardium").classList.toggle("on",d.pericardium);$("heartGroup").classList.toggle("on",d.pericardium);
+ $("tamponadeTag").setAttribute("opacity",d.pericardium?"1":"0");
+ const flows=["venous","raRv","rvPa","pvLa","laLv","lvAo"];
+ flows.forEach(id=>{$(id).classList.remove("low","high"); if(d.flow==="low"||d.flow==="verylow")$(id).classList.add("low"); if(d.flow==="high")$(id).classList.add("high")});
+ ["anim1","anim2","anim3","anim4"].forEach(id=>$(id).setAttribute("dur",d.flow==="verylow"?"4.2s":d.flow==="low"?"3.1s":d.flow==="high"?"1.4s":"2.1s"));
+ $("lungCaption").textContent=d.w>18?"Pression veineuse pulmonaire ↑":d.mpap>20?"Pression artérielle pulmonaire ↑":"Pression pulmonaire normale";
+ $("systemCaption").textContent=d.svr<800?"Vasodilatation systémique · RVS ↓":d.svr>1550?"Vasoconstriction systémique · RVS ↑":d.map<65?"Perfusion systémique ↓":d.co<4.2?"Débit systémique ↓":"Perfusion systémique relativement préservée";
+ $("co").textContent=d.co.toFixed(1).replace(".",",")+" L/min"; $("map").textContent=d.map+" mmHg";
+ const ct=trend(d.co,normal.co,.6),mt=trend(d.map,normal.map,8);
+ $("coTrend").textContent=ct[0]+" vs normal";$("coTrend").className="trend "+ct[1];
+ $("mapTrend").textContent=mt[0]+" vs normal";$("mapTrend").className="trend "+mt[1];
+ $("svr").textContent=d.svr+" dyn·s·cm⁻⁵"; $("pvr").textContent=d.pvr+" dyn·s·cm⁻⁵";
+ const st=trend(d.svr,normal.svr,220),pt=trend(d.pvr,normal.pvr,70);
+ $("svrTrend").textContent=st[0]+" vs profil de référence";$("svrTrend").className="trend "+st[1];
+ $("pvrTrend").textContent=pt[0]+" vs profil de référence";$("pvrTrend").className="trend "+pt[1];
+ $("preR").textContent=level(d.preR);$("preL").textContent=level(d.preL);
+ $("preRTrend").textContent=d.preR>0?"↑":d.preR<0?"↓":"≈";$("preRTrend").className="trend "+(d.preR>0?"high":d.preR<0?"low":"same");
+ $("preLTrend").textContent=d.preL>0?"↑":d.preL<0?"↓":"≈";$("preLTrend").className="trend "+(d.preL>0?"high":d.preL<0?"low":"same");
+ $("chain").innerHTML=d.chain.map((x,i)=>`<div class="chain-step"><b>${i+1}.</b> ${x}</div>`).join("");
+ const rows=[
+  ["OD/PVC",normal.ra,d.ra+" mmHg"],
+  ["VD diastolique",normal.rvDia,d.rvDia+" mmHg"],
+  ["PAP moyenne",normal.mpap,d.mpap+" mmHg"],
+  ["PAPO",normal.w,d.w+" mmHg"],
+  ["OG",normal.la,d.la+" mmHg"],
+  ["VG diastolique",normal.lvDia,d.lvDia+" mmHg"],
+  ["Débit cardiaque",normal.co.toFixed(1),d.co.toFixed(1)+" L/min"],
+  ["PAM",normal.map,d.map+" mmHg"],
+  ["RVS",normal.svr,d.svr+" dyn·s·cm⁻⁵"],
+  ["RVP",normal.pvr,d.pvr+" dyn·s·cm⁻⁵"]
+ ];
+ $("comparisonRows").innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td><strong>${r[2]}</strong></td></tr>`).join("");
+ $("pathCol").textContent=key==="normal"?"Actuel":d.badge;
+ $("caseTitle").textContent=d.caseTitle;
+ $("caseText").textContent=d.caseText;
+ $("caseBullets").innerHTML=d.caseBullets.map(x=>`<li>${x}</li>`).join("");
+ $("hemoBullets").innerHTML=d.hemoBullets.map(x=>`<li>${x}</li>`).join("");
+ $("untreatedBullets").innerHTML=d.untreatedBullets.map(x=>`<li>${x}</li>`).join("");
+ $("clinical").innerHTML="<strong>À observer :</strong> "+d.clinical;
+ $("source").innerHTML=`Référence des plages de pression intracardiaques normales : <a href="https://www.msdmanuals.com/fr/professional/r%C3%A9animation/prise-en-charge-du-patient-en-phase-critique/surveillance-et-examens-compl%C3%A9mentaires-en-soins-intensifs" target="_blank" rel="noopener">Manuel MSD, édition professionnelle — pressions normales du cœur et des gros vaisseaux</a>. Scénarios, explications et profils pathologiques : création pédagogique originale; valeurs pathologiques illustratives.`;
+}
+$("pathology").addEventListener("change",e=>render(e.target.value));
+$("normalBtn").addEventListener("click",()=>{$("pathology").value="normal";render("normal")});
+render("normal");
+})();
+</script>
+</body>
+</html>
